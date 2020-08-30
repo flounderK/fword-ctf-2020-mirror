@@ -162,7 +162,7 @@ def solve_for_one(target:int, equations:list) -> int:
     # Use floor division to not induce floating point errors
     solution = partial_solution // 2
     pretty = f"[{target}] = {solution} = "\
-            f"2*({partial_pretty}{')'*(len(equations)-2)}"
+            f"0.5*({partial_pretty}{')'*(len(equations)-2)}"
     print(pretty)
     return solution
 
