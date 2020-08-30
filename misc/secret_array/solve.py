@@ -1,6 +1,7 @@
 #!/usr/bin/env python3 
 
 import argparse
+import itertools
 import random
 import socket
 import sys
@@ -27,9 +28,7 @@ def bounds_correct(i:int, array_size:int) -> int:
     Note, this will fail if you go array_size+1 out of the
         bounds.
     Parameters
-    ----------
-    i: int
-        The value to bound within the array.
+    ---------- i: int The value to bound within the array.
     array_size: int
         The size of the array
     Returns
@@ -44,7 +43,7 @@ def bounds_correct(i:int, array_size:int) -> int:
     else:
         return i
 
-def create_socket(timeout:int=60) -> socket.socket:
+def create_socket(timeout:int=2) -> socket.socket:
     """
     Parameters
     ----------
@@ -108,7 +107,7 @@ def submit_information(s: socket.socket, solutions:list) -> str:
     """
     # Format the solutions
     formatted_solution = " ".join((str(s) for s in solutions))
-    print(formatted_solution)
+    # print(formatted_solution)
     # Send it off!
     s.send(f"DONE {formatted_solution}".encode('utf-8'))
     # Receive the flag (if we're correct)!
@@ -117,101 +116,94 @@ def submit_information(s: socket.socket, solutions:list) -> str:
 
 
 # Equation Solving
-def solve_for_one(target:int, equations:list) -> int:
-    """Solve for one of the equations
+def query_pair(s, i:int, j:int) -> int:
+    """Query the value of arr[i]+arr[j]
+    Parameters
+    ----------
+    s: socket.socket or list
+        The socket to communicate with.
+        OR, the array itself. Useful in the testing phase.
+    i: int
+        The i-th index to query information fromk
+    j: int
+        The j-th index to query information fromk
+    Returns
+    -------
+    int
+        The value arr[i]+arr[j]
+    """
+    if isinstance(s, list):
+        return s[i] + s[j]
+    else:
+        # Request the pair of information
+        s.send(f"{i} {j}\n".encode('utf-8'))
+        # Receive the value
+        received_info = s.recv(BUFFER_SIZE).decode('utf-8')
+        # Clear up communications for next request
+        s.send(b"")
+        s.recv(BUFFER_SIZE)
+        # Cast and return the value
+        return int(received_info.split()[0])
+
+
+def calulate_while_querying(s, n:int) -> list:
+    """Calculate while querying the information.
+    Parameters
+    ----------
+    s: socket.socket or list
+        The socket to communicate with.
+        OR, the array itself. Useful in the testing phase.
+    n: int
+        The number of numbers
+    Returns
+    -------
+    list
+        The solutions
+    """
+    # info is built as [0]+[1], [1]+[2], ..., [n-2]+[n-1] [n-1]+[0]
+    info = []
+    # calculations is built as [0], [1], ..., [n-2], [n-1]
+    calculations = []
+
+    # Calculate as we query
+    for i, k_start in zip(
+            range(0,n), itertools.chain([0], range(n))):
+        # Calculate i value
+        j = bounds_correct(i+1, n)
+        # Print status
+        print(f"i:{i}, j:{j}", end="\r")
+        # Query new information
+        info.append(query_pair(s, i, j))
+        # Append new info as start of new calculation
+        calculations.append(info[-1])
+        # Calculate as far as we can
+        for k in range(0, len(info)-1):
+            calculations[k] = info[-1] - calculations[k]
+    print("Finishing up equations")
+
+    # Finishing touches with collected info
+    for l in range(1, n):
+        for k in range(l, len(info)):
+            k = bounds_correct(k, n)
+            calculations[k] = info[l-1] - calculations[k]
+
+    # Finish calculations
+    for i in range(n):
+        calculations[i] = calculations[i] // 2
+
+    return calculations
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+            description="""
     The equations in the form of 'array[n]+array[n+1]', and the given
         array is actually the values of these equations.
     The solution is to subtract every other value from the target value.
     This cancels out every other value, except the target, thus solving it.
     Note, this will fail if the number of values/equations is even, as the
     result will be 0 every time.
-    Thankfully the CTF is 1337, which is odd.
-    Parameters
-    ----------
-    target: int
-        The value to solve for
-    equations: list
-        List of value results for the equations in the form of 'array[n]+array[n+1]'
-    Returns
-    -------
-    int
-        The solution to index 'target'
-    """
-    def bounds_loop():
-        for i in range(len(equations)):
-            yield bounds_correct(target + i, len(equations))
-
-    def equation_parts():
-        for i in bounds_loop():
-            yield equations[i]
-
-    # Solve the equation, which is subtracting everything in reverse.
-    def subtract(eq_parts, pretty_internal=""):
-        if len(eq_parts) == 2:
-            num = eq_parts[0] - eq_parts[1]
-            pretty_internal += f"{eq_parts[0]}-{eq_parts[1]})"
-            return num, pretty_internal
-        else:
-            num, pretty_internal = subtract(eq_parts[1:], pretty_internal)
-            num = eq_parts[0] - num
-            pretty_internal = f"{eq_parts[0]}-({pretty_internal}"
-            return num, pretty_internal
-
-    parts = list(equation_parts())
-    partial_solution, partial_pretty = subtract(parts)
-    # Use floor division to not induce floating point errors
-    solution = partial_solution // 2
-    pretty = f"[{target}] = {solution} = "\
-            f"0.5*({partial_pretty}{')'*(len(equations)-2)}"
-    print(pretty)
-    return solution
-
-
-def solve_for_all(equations:list) -> list:
-    """Solve for all of the equations
-    Parameters
-    ----------
-    equations: list
-        List of value results for the equations
-    Returns
-    -------
-    list
-        The solutions
-    """
-    solutions = []
-    for i in range(len(equations)):
-        solutions.append(solve_for_one(i, equations))
-        print_spacer()
-    return solutions
-
-
-def create_test_equations(test_array: list) -> list:
-    """Generate the values for equations for the given array
-    The values are in the form of 'array[n]+array[n+1]'
-    Parameters
-    ----------
-    test_array: list
-        The test array to create the test equation results for.
-    Returns
-    ----------
-    list
-        The equations created from the given array
-    """
-    test_equations = []
-    for i in range(len(test_array)):
-        # Equations values are requested in pairs.
-        i_p1 = i +1
-        # Take care of an out of bounds value
-        if i_p1 >= len(test_array):
-            i_p1 -= len(test_array)
-        test_equations.append(test_array[i] + test_array[i_p1])
-        print(f"[{i}] + [{i_p1}] = {test_equations[-1]}")
-    return test_equations
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-            description="Solve the CTF",
+    Thankfully the CTF is 1337, which is odd.""",
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-t", "--test", help="Run on test input.",
             default=False, action="store_true")
@@ -226,14 +218,14 @@ if __name__ == "__main__":
         exit(1)
 
     if args.test:
+        # Create test array for random integers
         test_array = []
         for i in range(args.number):
             test_array.append(random.randint(0,pow(10,25)))
         print(f"Test Array: {test_array}")
         print_spacer()
-        test_equations = create_test_equations(test_array)
-        print_spacer()
-        solutions = solve_for_all(test_equations)
+        # Solve for the integers
+        solutions = calulate_while_querying(test_array, len(test_array))
         print(f"Test Array: {test_array}")
         print(f"Solutions:  {solutions}")
         print_spacer()
@@ -246,11 +238,8 @@ if __name__ == "__main__":
         print(s.recv(BUFFER_SIZE))
         s.send(b"")
         # Get the equation information
-        print("Gathering equations")
-        equations = collect_equations(s)
-        # Solve equations
-        print("Solving equations")
-        solutions = solve_for_all(equations)
+        print("Querying information, and solving equations")
+        solutions = calulate_while_querying(s, args.number)
         # Submit information to receive the flag
         print("Submitting solution")
         flag = submit_information(s, solutions)
