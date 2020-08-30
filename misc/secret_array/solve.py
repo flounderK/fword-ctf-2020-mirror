@@ -76,10 +76,12 @@ def submit_information(s: socket.socket, solutions:list) -> str:
     """
     # Format the solutions
     formatted_solution = " ".join((str(s) for s in solutions))
-    # print(formatted_solution)
     # Send it off!
-    s.send(f"DONE {formatted_solution}".encode('utf-8'))
+    s.send(f"DONE {formatted_solution}\n".encode('utf-8'))
     # Receive the flag (if we're correct)!
+    congratulations = s.recv(BUFFER_SIZE).decode('utf-8')
+    print(congratulations)
+    s.send(b"")
     flag = s.recv(BUFFER_SIZE).decode('utf-8')
     return flag
 
