@@ -159,12 +159,12 @@ def solve_for_one(target:int, equations:list) -> int:
 
     parts = list(equation_parts())
     partial_solution, partial_pretty = subtract(parts)
-    solution = partial_solution/2.0
-    solution_int = int(solution)
-    pretty = f"[{target}] = {solution_int} = "\
+    # Use floor division to not induce floating point errors
+    solution = partial_solution // 2
+    pretty = f"[{target}] = {solution} = "\
             f"2*({partial_pretty}{')'*(len(equations)-2)}"
     print(pretty)
-    return solution_int
+    return solution
 
 
 def solve_for_all(equations:list) -> list:
@@ -228,7 +228,7 @@ if __name__ == "__main__":
     if args.test:
         test_array = []
         for i in range(args.number):
-            test_array.append(random.randint(0,1000))
+            test_array.append(random.randint(0,pow(10,25)))
         print(f"Test Array: {test_array}")
         print_spacer()
         test_equations = create_test_equations(test_array)
