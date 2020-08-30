@@ -61,37 +61,6 @@ def create_socket(timeout:int=2) -> socket.socket:
     return s
 
 
-def collect_equations(s: socket.socket, n:int=1337) -> list:
-    """
-    Parameters
-    ----------
-    s: socket.socket
-        The socket to communicate with.
-    n: int
-        The number of equations to gather.
-    Returns
-    -------
-    list
-        The list of equation values.
-    """
-    equations = []
-    for i in range(n):
-        # Equations values are requested in pairs.
-        i_p1 = bounds_correct(i+1, n)
-        # Request the pair of information
-        s.send(f"{i} {i_p1}\n".encode('utf-8'))
-        # Receive the value
-        received_info = s.recv(BUFFER_SIZE).decode('utf-8')
-        # Cast and store the value
-        equations.append(int(received_info.split()[0]))
-        # Print out equation, for prettiness?
-        print(f"[{i}] + [{i_p1}] = {equations[-1]}")
-        # Clear up communications for next request
-        s.send(b"")
-        s.recv(BUFFER_SIZE)
-    return equations
-
-
 def submit_information(s: socket.socket, solutions:list) -> str:
     """
     Parameters
