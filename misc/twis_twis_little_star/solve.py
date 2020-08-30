@@ -1,7 +1,9 @@
 #!/usr/bin/env python3 
 
 import argparse
+import json
 import socket
+import os
 
 TCP_IP = 'twistwislittlestar.fword.wtf'
 TCP_PORT = 4445
@@ -31,7 +33,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
             description="""Randomness is power, apparently!""",
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("-s", "--save_file", default="save_file",
+            help="Path to the json file of saved random numbers..")
     args = parser.parse_args()
+
+    # Load previous saves
+    if not os.path.isfile(args.save_file):
+        saved_data = {"random_numbers": []}
+    else:
+        with open(args.save_file, "r") as fin:
+            saved_data = json.load(fin)
 
     # Create the socket
     soc = create_socket()
@@ -62,8 +73,14 @@ if __name__ == "__main__":
         # Collect random number
         random_numbers.append(int(info.split()[4]))
 
-    # Print out what we got
-    print(random_numbers)
     # Clean up
     soc.close()
+
+    saved_data["random_numbers"].append(random_numbers)
+    
+    # Save new data
+    with open(args.save_file, "w") as fout:
+        json.dump(saved_data, fout)
+
+    print("We have no idea what we're doing :)")
 
